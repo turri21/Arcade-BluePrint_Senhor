@@ -340,7 +340,7 @@ reg [6:0] pipe_color;                // Pre-fetched color byte
 reg       pipe_priority;             // Pre-fetched priority bit
 reg [2:0] pipe_fine_y;              // Fine Y for ROM address
 
-wire [8:0] adjusted_h_cnt = (h_cnt <= (9'd248 - 9'd0)) ? h_cnt + 9'd0 : (9'd248 - 9'd0);  // Test Adjusting This...
+wire [8:0] adjusted_h_cnt = (h_cnt <= 9'd248) ? h_cnt : 9'd248;  // Test Adjusting This...
 wire [4:0] screen_col  = adjusted_h_cnt[7:3];  // Changed From - h_cnt[7:3];
 wire [2:0] fine_x      = h_cnt[2:0];
 wire [7:0] screen_y    = v_cnt[7:0];
