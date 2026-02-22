@@ -493,6 +493,7 @@ localparam SPR_RD_B2    = 4'd6;
 localparam SPR_RD_B3    = 4'd7;
 localparam SPR_ROMADDR  = 4'd8;
 localparam SPR_ROMWAIT  = 4'd9;
+localparam SPR_ROMWAIT2 = 4'd12;
 localparam SPR_PIXELS   = 4'd10;
 localparam SPR_NEXT     = 4'd11;
 
@@ -583,12 +584,15 @@ always_ff @(posedge clk_49m) begin
 			end
 
 			SPR_ROMWAIT: begin
-				// ROM data valid this cycle; latch all three planes
+				spr_state <= SPR_ROMWAIT2;
+			end
+
+			SPR_ROMWAIT2: begin
 				spr_rom_r_lat <= spr_r_D;
 				spr_rom_b_lat <= spr_b_D;
 				spr_rom_g_lat <= spr_g_D;
-				spr_pix_cnt   <= 3'd0;
-				spr_state     <= SPR_PIXELS;
+				spr_pix_cnt <= 3'd0;
+				spr_state <= SPR_PIXELS;
 			end
 
 			SPR_PIXELS: begin
@@ -599,7 +603,7 @@ always_ff @(posedge clk_49m) begin
 					// flipX: bit0 first (pixel 0 = LSB); normal: bit7 first (pixel 0 = MSB)
 					bit_pos   = spr_byte2[6] ? spr_pix_cnt : (3'd7 - spr_pix_cnt);
 					pixel_val = {spr_rom_g_lat[bit_pos], spr_rom_b_lat[bit_pos], spr_rom_r_lat[bit_pos]};
-					x_pos     = spr_byte3 + {5'd0, spr_pix_cnt} - 8'd4;
+					x_pos     = spr_byte3 + {5'd0, spr_pix_cnt} + 8'd2;
 					if (pixel_val != 3'd0) begin
 						if (~linebuf_sel)
 							linebuf1[x_pos] <= pixel_val;
