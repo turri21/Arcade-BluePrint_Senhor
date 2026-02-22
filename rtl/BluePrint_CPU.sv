@@ -49,7 +49,7 @@ module BluePrint_CPU
 	input   [3:0] h_center, v_center,
 
 	// ROM loading
-	input         main1_cs_i, main2_cs_i, main3_cs_i, main4_cs_i, main5_cs_i,
+	input         main1_cs_i, main2_cs_i, main3_cs_i, main4_cs_i, main5_cs_i, main6_cs_i,
 	input         tile0_cs_i, tile1_cs_i,
 	input         spr_r_cs_i, spr_b_cs_i, spr_g_cs_i,
 	input  [24:0] ioctl_addr,
@@ -188,12 +188,13 @@ wire cs_cram   = mem_valid & (z80_A[15:12] == 4'hF);                // 0xF000-0x
 //------------------------------------------------------------ ROMs ------------------------------------------------------------//
 
 // Main program ROMs (5x 4KB)
-wire [7:0] rom1_D, rom2_D, rom3_D, rom4_D, rom5_D;
+wire [7:0] rom1_D, rom2_D, rom3_D, rom4_D, rom5_D, rom6_D;
 eprom_4k main_rom1(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main1_cs_i), .WR(ioctl_wr), .DATA(rom1_D));
 eprom_4k main_rom2(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main2_cs_i), .WR(ioctl_wr), .DATA(rom2_D));
 eprom_4k main_rom3(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main3_cs_i), .WR(ioctl_wr), .DATA(rom3_D));
 eprom_4k main_rom4(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main4_cs_i), .WR(ioctl_wr), .DATA(rom4_D));
 eprom_4k main_rom5(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main5_cs_i), .WR(ioctl_wr), .DATA(rom5_D));
+eprom_4k main_rom6(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main6_cs_i), .WR(ioctl_wr), .DATA(rom6_D));
 
 // ROM data mux based on address
 wire [7:0] rom_D = (z80_A[14:12] == 3'd0) ? rom1_D :
@@ -201,6 +202,7 @@ wire [7:0] rom_D = (z80_A[14:12] == 3'd0) ? rom1_D :
                    (z80_A[14:12] == 3'd2) ? rom3_D :
                    (z80_A[14:12] == 3'd3) ? rom4_D :
                    (z80_A[14:12] == 3'd4) ? rom5_D :
+                   (z80_A[14:12] == 3'd5) ? rom6_D :
                    8'hFF;
 
 // Tile ROMs (2x 4KB) — addressed by rendering pipeline
