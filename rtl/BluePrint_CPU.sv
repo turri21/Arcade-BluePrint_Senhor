@@ -480,11 +480,9 @@ reg       spr_flipy;          // flipY for current sprite (from previous sprite'
 reg       prev_sprite_flipy;  // Carry flipY forward
 reg [7:0] spr_rom_r_lat, spr_rom_b_lat, spr_rom_g_lat;
 reg [2:0] spr_pix_cnt;
-reg [7:0] spr_clear_addr;
 reg [7:0] next_scanline;      // v_cnt of the line being prepared
 
 localparam SPR_IDLE     = 4'd0;
-localparam SPR_CLEAR    = 4'd1;
 localparam SPR_INIT_RD  = 4'd2;
 localparam SPR_INIT_LAT = 4'd3;
 localparam SPR_RD_B0    = 4'd4;
@@ -502,28 +500,15 @@ always_ff @(posedge clk_49m) begin
 		spr_state         <= SPR_IDLE;
 		spr_idx           <= 6'd0;
 		prev_sprite_flipy <= 1'b0;
-		spr_clear_addr    <= 8'd0;
 	end else begin
 		case (spr_state)
 
 			SPR_IDLE: begin
 				if (cen_5m && base_h_cnt == 9'd256) begin
 					next_scanline  <= v_cnt[7:0] + 8'd1;
-					spr_clear_addr <= 8'd0;
-					spr_state      <= SPR_CLEAR;
-				end
-			end
-
-			SPR_CLEAR: begin
-				if (~linebuf_sel)
-					linebuf1[spr_clear_addr] <= 3'd0;
-				else
-					linebuf0[spr_clear_addr] <= 3'd0;
-				if (spr_clear_addr == 8'd255) begin
-					sprite_scan_addr <= 8'hFE; // sprite 63, byte 2
+					sprite_scan_addr <= 8'hFE;
 					spr_state        <= SPR_INIT_RD;
-				end else
-					spr_clear_addr <= spr_clear_addr + 8'd1;
+				end
 			end
 
 			SPR_INIT_RD: begin
@@ -636,6 +621,17 @@ end
 
 //wire [2:0] sprite_pixel     = linebuf_sel ? linebuf1[h_cnt[7:0]] : linebuf0[h_cnt[7:0]];
 wire [2:0] sprite_pixel       = linebuf_sel ? linebuf1[h_cnt[7:0] - 8'd3] : linebuf0[h_cnt[7:0] - 8'd3];
+
+// Clear display buffer as we read (becomes write buffer next line)
+always_ff @(posedge clk_49m) begin
+    if (cen_5m && visible_line) begin
+        if (linebuf_sel)
+            linebuf1[h_cnt[7:0] - 8'd3] <= 3'd0;
+        else
+            linebuf0[h_cnt[7:0] - 8'd3] <= 3'd0;
+    end
+end
+
 wire       sprite_transparent = (sprite_pixel == 3'b000);
 
 // Sprite pixel bits: bit0=R, bit1=B, bit2=G (full brightness only)

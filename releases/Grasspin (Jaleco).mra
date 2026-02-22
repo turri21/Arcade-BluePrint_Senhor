@@ -62,6 +62,6 @@
 	</rom>
 	<rom index="4"></rom>
 	<nvram index="4" size="50"></nvram>
-    <remark>There are Minor Graphics Issues with Sprites</remark>
+    <remark></remark>
     <mratimestamp>20260221000000</mratimestamp>
 </misterromdescription>
