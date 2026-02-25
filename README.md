@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="Useful Information/BluePrint.png" width="800">
-  <img src="Useful Information/Grasspinpng" width="800">
+  <img src="Useful Information/Blue Print.png" width="800">
+  <img src="Useful Information/Grasspin.png" width="800">
   <img src="Useful Information/Saturn.png" width="800">
 </p>
 
