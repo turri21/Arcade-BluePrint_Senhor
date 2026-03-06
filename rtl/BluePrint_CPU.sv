@@ -26,7 +26,7 @@
 module BluePrint_CPU
 (
 	input         reset,
-	input         clk_49m,
+	input         clk_40m,
 
 	// Video outputs
 	output  [4:0] red, green, blue,
@@ -67,27 +67,20 @@ module BluePrint_CPU
 
 //------------------------------------------------------- Clock enables -------------------------------------------------------//
 
-// Generate ~5 MHz pixel clock enable from 49.152 MHz
-// 49.152 * 89/875 ≈ 4.997 MHz
-wire [1:0] pix_cen_o;
-jtframe_frac_cen #(2) pix_cen
-(
-	.clk(clk_49m),
-	.n(10'd89),
-	.m(10'd875),
-	.cen(pix_cen_o),
-	.cenb()
-);
-wire cen_5m = pix_cen_o[0];
+// Generate 5 MHz pixel clock enable from 40 MHz: integer divide by 8
+// 40 MHz / 8 = 5.000 MHz exactly (matches original 10 MHz XTAL / 2)
+reg [2:0] pix_div = 3'd0;
+always @(posedge clk_40m) pix_div <= pix_div + 3'd1;
+wire cen_5m = (pix_div == 3'd0);
 
-// Generate ~3.5 MHz CPU clock enable from 49.152 MHz
-// 49.152 * 5/70 ≈ 3.511 MHz
+// Generate 3.5 MHz CPU clock enable from 40 MHz
+// 40 * 7/80 = 3.500 MHz exactly (matches 7 MHz XTAL / 2)
 wire [1:0] cpu_cen_o;
 jtframe_frac_cen #(2) cpu_cen
 (
-	.clk(clk_49m),
-	.n(10'd5),
-	.m(10'd70),
+	.clk(clk_40m),
+	.n(10'd7),
+	.m(10'd80),
 	.cen(cpu_cen_o),
 	.cenb()
 );
@@ -101,7 +94,7 @@ assign ce_pix = cen_5m;
 // From MAME: set_raw(5MHz, 320, 0, 256, 264, 16, 240)
 reg [8:0] base_h_cnt = 9'd0;
 reg [8:0] v_cnt = 9'd0;
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	if (cen_5m) begin
 		if (base_h_cnt == 9'd319) begin
 			base_h_cnt <= 9'd0;
@@ -137,7 +130,7 @@ wire n_mreq, n_iorq, n_rd, n_wr, n_rfsh, n_m1;
 T80s cpu
 (
 	.RESET_n(reset),
-	.CLK(clk_49m),
+	.CLK(clk_40m),
 	.CEN(cen_3m5 & ~pause),
 	.INT_n(n_irq),
 	.NMI_n(1'b1),
@@ -159,7 +152,7 @@ T80s cpu
 reg n_irq = 1'b1;
 reg vblk_last = 1'b0;
 wire irq_ack = ~n_iorq & ~n_m1;
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	if (!reset) begin
 		n_irq <= 1'b1;
 		vblk_last <= 1'b0;
@@ -189,12 +182,12 @@ wire cs_cram   = mem_valid & (z80_A[15:12] == 4'hF);                // 0xF000-0x
 
 // Main program ROMs (5x 4KB)
 wire [7:0] rom1_D, rom2_D, rom3_D, rom4_D, rom5_D, rom6_D;
-eprom_4k main_rom1(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main1_cs_i), .WR(ioctl_wr), .DATA(rom1_D));
-eprom_4k main_rom2(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main2_cs_i), .WR(ioctl_wr), .DATA(rom2_D));
-eprom_4k main_rom3(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main3_cs_i), .WR(ioctl_wr), .DATA(rom3_D));
-eprom_4k main_rom4(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main4_cs_i), .WR(ioctl_wr), .DATA(rom4_D));
-eprom_4k main_rom5(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main5_cs_i), .WR(ioctl_wr), .DATA(rom5_D));
-eprom_4k main_rom6(.CLK(clk_49m), .ADDR(z80_A[11:0]), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main6_cs_i), .WR(ioctl_wr), .DATA(rom6_D));
+eprom_4k main_rom1(.CLK(clk_40m), .ADDR(z80_A[11:0]), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main1_cs_i), .WR(ioctl_wr), .DATA(rom1_D));
+eprom_4k main_rom2(.CLK(clk_40m), .ADDR(z80_A[11:0]), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main2_cs_i), .WR(ioctl_wr), .DATA(rom2_D));
+eprom_4k main_rom3(.CLK(clk_40m), .ADDR(z80_A[11:0]), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main3_cs_i), .WR(ioctl_wr), .DATA(rom3_D));
+eprom_4k main_rom4(.CLK(clk_40m), .ADDR(z80_A[11:0]), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main4_cs_i), .WR(ioctl_wr), .DATA(rom4_D));
+eprom_4k main_rom5(.CLK(clk_40m), .ADDR(z80_A[11:0]), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main5_cs_i), .WR(ioctl_wr), .DATA(rom5_D));
+eprom_4k main_rom6(.CLK(clk_40m), .ADDR(z80_A[11:0]), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(main6_cs_i), .WR(ioctl_wr), .DATA(rom6_D));
 
 // ROM data mux based on address
 wire [7:0] rom_D = (z80_A[14:12] == 3'd0) ? rom1_D :
@@ -208,15 +201,15 @@ wire [7:0] rom_D = (z80_A[14:12] == 3'd0) ? rom1_D :
 // Tile ROMs (2x 4KB) — addressed by rendering pipeline
 wire [7:0] tile0_D, tile1_D;
 reg  [11:0] tile_render_addr;
-eprom_4k tile_rom0(.CLK(clk_49m), .ADDR(tile_render_addr), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(tile0_cs_i), .WR(ioctl_wr), .DATA(tile0_D));
-eprom_4k tile_rom1(.CLK(clk_49m), .ADDR(tile_render_addr), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(tile1_cs_i), .WR(ioctl_wr), .DATA(tile1_D));
+eprom_4k tile_rom0(.CLK(clk_40m), .ADDR(tile_render_addr), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(tile0_cs_i), .WR(ioctl_wr), .DATA(tile0_D));
+eprom_4k tile_rom1(.CLK(clk_40m), .ADDR(tile_render_addr), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(tile1_cs_i), .WR(ioctl_wr), .DATA(tile1_D));
 
 // Sprite ROMs (3x 4KB) — addressed by sprite scanner
 wire [7:0] spr_r_D, spr_b_D, spr_g_D;
 reg  [11:0] spr_render_addr;
-eprom_4k spr_rom_r(.CLK(clk_49m), .ADDR(spr_render_addr), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(spr_r_cs_i), .WR(ioctl_wr), .DATA(spr_r_D));
-eprom_4k spr_rom_b(.CLK(clk_49m), .ADDR(spr_render_addr), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(spr_b_cs_i), .WR(ioctl_wr), .DATA(spr_b_D));
-eprom_4k spr_rom_g(.CLK(clk_49m), .ADDR(spr_render_addr), .CLK_DL(clk_49m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(spr_g_cs_i), .WR(ioctl_wr), .DATA(spr_g_D));
+eprom_4k spr_rom_r(.CLK(clk_40m), .ADDR(spr_render_addr), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(spr_r_cs_i), .WR(ioctl_wr), .DATA(spr_r_D));
+eprom_4k spr_rom_b(.CLK(clk_40m), .ADDR(spr_render_addr), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(spr_b_cs_i), .WR(ioctl_wr), .DATA(spr_b_D));
+eprom_4k spr_rom_g(.CLK(clk_40m), .ADDR(spr_render_addr), .CLK_DL(clk_40m), .ADDR_DL(ioctl_addr), .DATA_IN(ioctl_data), .CS_DL(spr_g_cs_i), .WR(ioctl_wr), .DATA(spr_g_D));
 
 //-------------------------------------------------------------- RAM -----------------------------------------------------------//
 
@@ -224,12 +217,12 @@ eprom_4k spr_rom_g(.CLK(clk_49m), .ADDR(spr_render_addr), .CLK_DL(clk_49m), .ADD
 wire [7:0] wram_D;
 dpram_dc #(.widthad_a(11)) work_ram
 (
-	.clock_a(clk_49m),
+	.clock_a(clk_40m),
 	.wren_a(cs_wram & ~n_wr),
 	.address_a(z80_A[10:0]),
 	.data_a(z80_Dout),
 	.q_a(wram_D),
-	.clock_b(clk_49m),
+	.clock_b(clk_40m),
 	.wren_b(hs_write),
 	.address_b(hs_address[10:0]),
 	.data_b(hs_data_in),
@@ -241,9 +234,9 @@ wire [7:0] vram_cpu_D, vram_render_D;
 reg  [9:0] vram_render_addr;
 dpram_dc #(.widthad_a(10)) video_ram
 (
-	.clock_a(clk_49m), .wren_a(cs_vram & ~n_wr),
+	.clock_a(clk_40m), .wren_a(cs_vram & ~n_wr),
 	.address_a(z80_A[9:0]), .data_a(z80_Dout), .q_a(vram_cpu_D),
-	.clock_b(clk_49m), .wren_b(1'b0),
+	.clock_b(clk_40m), .wren_b(1'b0),
 	.address_b(vram_render_addr), .data_b(8'd0), .q_b(vram_render_D)
 );
 
@@ -252,9 +245,9 @@ wire [7:0] cram_cpu_D, cram_render_D;
 reg  [9:0] cram_render_addr;
 dpram_dc #(.widthad_a(10)) color_ram
 (
-	.clock_a(clk_49m), .wren_a(cs_cram & ~n_wr),
+	.clock_a(clk_40m), .wren_a(cs_cram & ~n_wr),
 	.address_a(z80_A[9:0]), .data_a(z80_Dout), .q_a(cram_cpu_D),
-	.clock_b(clk_49m), .wren_b(1'b0),
+	.clock_b(clk_40m), .wren_b(1'b0),
 	.address_b(cram_render_addr), .data_b(8'd0), .q_b(cram_render_D)
 );
 
@@ -263,9 +256,9 @@ wire [7:0] scroll_cpu_D, scroll_render_D;
 reg  [7:0] scroll_render_addr;
 dpram_dc #(.widthad_a(8)) scroll_ram
 (
-	.clock_a(clk_49m), .wren_a(cs_scroll & ~n_wr),
+	.clock_a(clk_40m), .wren_a(cs_scroll & ~n_wr),
 	.address_a(z80_A[7:0]), .data_a(z80_Dout), .q_a(scroll_cpu_D),
-	.clock_b(clk_49m), .wren_b(1'b0),
+	.clock_b(clk_40m), .wren_b(1'b0),
 	.address_b(scroll_render_addr), .data_b(8'd0), .q_b(scroll_render_D)
 );
 
@@ -274,9 +267,9 @@ wire [7:0] sprite_cpu_D, sprite_scan_D;
 reg  [7:0] sprite_scan_addr;
 dpram_dc #(.widthad_a(8)) sprite_ram
 (
-	.clock_a(clk_49m), .wren_a(cs_sprite & ~n_wr),
+	.clock_a(clk_40m), .wren_a(cs_sprite & ~n_wr),
 	.address_a(z80_A[7:0]), .data_a(z80_Dout), .q_a(sprite_cpu_D),
-	.clock_b(clk_49m), .wren_b(1'b0),
+	.clock_b(clk_40m), .wren_b(1'b0),
 	.address_b(sprite_scan_addr), .data_b(8'd0), .q_b(sprite_scan_D)
 );
 
@@ -285,7 +278,7 @@ dpram_dc #(.widthad_a(8)) sprite_ram
 // Flip screen and gfx_bank (0xE000 write)
 reg flip = 1'b0;
 reg gfx_bank = 1'b0;
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	if (!reset) begin
 		flip <= 1'b0;
 		gfx_bank <= 1'b0;
@@ -298,7 +291,7 @@ end
 // Sound command (0xD000 write)
 reg [7:0] snd_cmd_reg = 8'd0;
 reg snd_cmd_wr_reg = 1'b0;
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	snd_cmd_wr_reg <= 1'b0;
 	if (cen_3m5 && cs_sndcmd) begin
 		snd_cmd_reg <= z80_Dout;
@@ -349,7 +342,7 @@ wire [2:0] fine_x      = h_cnt[2:0];
 wire [7:0] screen_y    = v_cnt[7:0];
 wire visible_line = (v_cnt >= 9'd16) && (v_cnt < 9'd240);
 
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	if (!reset) begin
 		tile_shift0         <= 8'd0;
 		tile_shift1         <= 8'd0;
@@ -459,14 +452,14 @@ reg [2:0] linebuf1 [0:255];
 reg       linebuf_sel = 1'b0; // 0: display buf0/write buf1; 1: display buf1/write buf0
 
 // Swap at the start of each active line
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	if (!reset)
 		linebuf_sel <= 1'b0;
 	else if (cen_5m && h_cnt == 9'd0)
 		linebuf_sel <= ~linebuf_sel;
 end
 
-//--- Sprite scanner state machine (runs at clk_49m during HBlank) ---
+//--- Sprite scanner state machine (runs at clk_40m during HBlank) ---
 // Sprites are 8×16. ROM address: {tile_code[7:0], line_in_sprite[3:0]}.
 // flipY for sprite N comes from sprite N-1's byte2[7] (previous-sprite quirk).
 
@@ -495,7 +488,7 @@ localparam SPR_ROMWAIT2 = 4'd12;
 localparam SPR_PIXELS   = 4'd10;
 localparam SPR_NEXT     = 4'd11;
 
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	if (!reset) begin
 		spr_state         <= SPR_IDLE;
 		spr_idx           <= 6'd0;
@@ -623,7 +616,7 @@ end
 wire [2:0] sprite_pixel       = linebuf_sel ? linebuf1[h_cnt[7:0] - 8'd3] : linebuf0[h_cnt[7:0] - 8'd3];
 
 // Clear display buffer as we read (becomes write buffer next line)
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
     if (cen_5m && visible_line) begin
         if (linebuf_sel)
             linebuf1[h_cnt[7:0] - 8'd3] <= 3'd0;

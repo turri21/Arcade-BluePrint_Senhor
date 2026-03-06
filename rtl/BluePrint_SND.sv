@@ -27,7 +27,7 @@ module BluePrint_SND
 (
 	input                reset,
 	input				 pause,
-	input                clk_49m,         // Master clock: 49.152MHz
+	input                clk_40m,         // Master clock: 49.152MHz
 
 	// Sound command interface from main CPU
 	input          [7:0] sound_cmd,       // Sound command byte from main CPU latch
@@ -56,20 +56,20 @@ module BluePrint_SND
 //------------------------------------------------------- Clock division -------------------------------------------------------//
 
 // Generate 1.25 MHz clock enable for sound Z80 and AY1, and 0.625 MHz for AY2
-// 49.152 MHz * 25/983 ≈ 1.2489 MHz ≈ 1.25 MHz
-// W=2: cen[0] = 1.25 MHz, cen[1] = 0.625 MHz
+// 40 MHz * 1/32 = 1.250 MHz exactly (matches 10 MHz XTAL / 2 / 2 / 2)
+// W=2: cen[0] = 1.250 MHz, cen[1] = 0.625 MHz
 wire cen_1m25, cen_0m625;
 jtframe_frac_cen #(2) sound_cen
 (
-	.clk(clk_49m),
-	.n(10'd25),
-	.m(10'd983),
+	.clk(clk_40m),
+	.n(10'd1),
+	.m(10'd32),
 	.cen({cen_0m625, cen_1m25})
 );
 
 // DC removal filter clock
 reg [8:0] div = 9'd0;
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	div <= div + 9'd1;
 end
 wire cen_dcrm = !div;
@@ -83,7 +83,7 @@ wire n_m1, n_mreq, n_iorq, n_rd, n_wr, n_rfsh;
 T80s C8
 (
 	.RESET_n(reset),
-	.CLK(clk_49m),
+	.CLK(clk_40m),
 	.CEN(cen_1m25 & ~pause),
 	.INT_n(n_irq),
 	.NMI_n(n_nmi),
@@ -141,9 +141,9 @@ wire [7:0] sound_Din = cs_rom1           ? rom1_D :
 wire [7:0] rom1_D;
 eprom_4k snd_rom1
 (
-	.CLK(clk_49m),
+	.CLK(clk_40m),
 	.ADDR(sound_A[11:0]),
-	.CLK_DL(clk_49m),
+	.CLK_DL(clk_40m),
 	.ADDR_DL(ioctl_addr),
 	.DATA_IN(ioctl_data),
 	.CS_DL(snd_rom1_cs_i),
@@ -155,9 +155,9 @@ eprom_4k snd_rom1
 wire [7:0] rom2_D;
 eprom_4k snd_rom2
 (
-	.CLK(clk_49m),
+	.CLK(clk_40m),
 	.ADDR(sound_A[11:0]),
-	.CLK_DL(clk_49m),
+	.CLK_DL(clk_40m),
 	.ADDR_DL(ioctl_addr),
 	.DATA_IN(ioctl_data),
 	.CS_DL(snd_rom2_cs_i),
@@ -171,7 +171,7 @@ eprom_4k snd_rom2
 wire [7:0] sndram_D;
 spram #(4, 10) A2
 (
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.we(cs_ram & ~n_wr),
 	.addr(sound_A[9:0]),
 	.data(sound_Dout[3:0]),
@@ -181,7 +181,7 @@ spram #(4, 10) A2
 // Sound RAM (upper 4 bits)
 spram #(4, 10) A3
 (
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.we(cs_ram & ~n_wr),
 	.addr(sound_A[9:0]),
 	.data(sound_Dout[7:4]),
@@ -194,7 +194,7 @@ spram #(4, 10) A3
 // 1,250,000 Hz / 240 Hz = 5208.3 cycles
 reg [12:0] irq_cnt = 13'd0;
 reg irq_pulse = 1'b0;
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	if (cen_1m25) begin
 		if (irq_cnt == 13'd5207) begin
 			irq_cnt <= 13'd0;
@@ -210,7 +210,7 @@ end
 // IRQ latch - cleared by interrupt acknowledge
 wire irq_clr = (~reset | ~(n_iorq | n_m1));
 reg n_irq = 1'b1;
-always_ff @(posedge clk_49m or posedge irq_clr) begin
+always_ff @(posedge clk_40m or posedge irq_clr) begin
 	if (irq_clr)
 		n_irq <= 1'b1;
 	else if (irq_pulse)
@@ -220,7 +220,7 @@ end
 // NMI generation - pulse triggered by main CPU writing to 0xD000
 reg n_nmi = 1'b1;
 reg sound_cmd_wr_last = 1'b0;
-always_ff @(posedge clk_49m) begin
+always_ff @(posedge clk_40m) begin
 	sound_cmd_wr_last <= sound_cmd_wr;
 	if (!sound_cmd_wr_last && sound_cmd_wr)
 		n_nmi <= 1'b0;  // Assert NMI on rising edge of write
@@ -238,7 +238,7 @@ wire [7:0] ay1A_raw, ay1B_raw, ay1C_raw;
 jt49_bus #(.COMP(3'b100)) ay1_chip
 (
 	.rst_n(reset),
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.clk_en(cen_1m25 & ~pause),
 	.bdir(ay1_bdir),
 	.bc1(ay1_bc1),
@@ -260,7 +260,7 @@ wire [7:0] ay2A_raw, ay2B_raw, ay2C_raw;
 jt49_bus #(.COMP(3'b100)) ay2_chip
 (
 	.rst_n(reset),
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.clk_en(cen_0m625 & ~pause),
 	.bdir(ay2_bdir),
 	.bc1(ay2_bc1),
@@ -280,7 +280,7 @@ jt49_bus #(.COMP(3'b100)) ay2_chip
 wire signed [15:0] ay1A_dcrm, ay1B_dcrm, ay1C_dcrm, ay2A_dcrm, ay2B_dcrm, ay2C_dcrm;
 jt49_dcrm2 #(16) dcrm_ay1A
 (
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.cen(cen_dcrm),
 	.rst(~reset),
 	.din({3'd0, ay1A_raw, 5'd0}),
@@ -288,7 +288,7 @@ jt49_dcrm2 #(16) dcrm_ay1A
 );
 jt49_dcrm2 #(16) dcrm_ay1B
 (
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.cen(cen_dcrm),
 	.rst(~reset),
 	.din({3'd0, ay1B_raw, 5'd0}),
@@ -296,7 +296,7 @@ jt49_dcrm2 #(16) dcrm_ay1B
 );
 jt49_dcrm2 #(16) dcrm_ay1C
 (
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.cen(cen_dcrm),
 	.rst(~reset),
 	.din({3'd0, ay1C_raw, 5'd0}),
@@ -304,7 +304,7 @@ jt49_dcrm2 #(16) dcrm_ay1C
 );
 jt49_dcrm2 #(16) dcrm_ay2A
 (
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.cen(cen_dcrm),
 	.rst(~reset),
 	.din({3'd0, ay2A_raw, 5'd0}),
@@ -312,7 +312,7 @@ jt49_dcrm2 #(16) dcrm_ay2A
 );
 jt49_dcrm2 #(16) dcrm_ay2B
 (
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.cen(cen_dcrm),
 	.rst(~reset),
 	.din({3'd0, ay2B_raw, 5'd0}),
@@ -320,7 +320,7 @@ jt49_dcrm2 #(16) dcrm_ay2B
 );
 jt49_dcrm2 #(16) dcrm_ay2C
 (
-	.clk(clk_49m),
+	.clk(clk_40m),
 	.cen(cen_dcrm),
 	.rst(~reset),
 	.din({3'd0, ay2C_raw, 5'd0}),

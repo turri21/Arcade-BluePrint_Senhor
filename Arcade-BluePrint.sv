@@ -266,7 +266,7 @@ wire        direct_video;
 
 hps_io #(.CONF_STR(CONF_STR)) hps_io
 (
-	.clk_sys(CLK_49M),
+	.clk_sys(CLK_40M),
 	.HPS_BUS(HPS_BUS),
 	.EXT_BUS(),
 	.gamma_bus(gamma_bus),
@@ -294,14 +294,14 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 
 ////////////////////   CLOCKS   ///////////////////
 
-wire CLK_49M;
+wire CLK_40M;
 wire locked;
 
 pll pll
 (
 	.refclk(CLK_50M),
 	.rst(0),
-	.outclk_0(CLK_49M),
+	.outclk_0(CLK_40M),
 	.reconfig_to_pll(reconfig_to_pll),
 	.reconfig_from_pll(reconfig_from_pll),
 	.locked(locked)
@@ -353,7 +353,7 @@ reg btn_service  = 0;
 
 wire pressed = ps2_key[9];
 wire [7:0] code = ps2_key[7:0];
-always @(posedge CLK_49M) begin
+always @(posedge CLK_40M) begin
 	reg old_state;
 	old_state <= ps2_key[10];
 	if(old_state != ps2_key[10]) begin
@@ -406,7 +406,7 @@ wire [23:0] rgb_out;
 pause #(8,8,8,49) pause
 (
 	.*,
-	.clk_sys(CLK_49M),
+	.clk_sys(CLK_40M),
 	.user_button(m_pause),
 	.pause_request(hs_pause),
 	.options(~status[26:25])
@@ -414,7 +414,7 @@ pause #(8,8,8,49) pause
 
 // DIP SWITCHES
 reg [7:0] dip_sw[8];	// Active-LOW
-always @(posedge CLK_49M) begin
+always @(posedge CLK_40M) begin
 	if(ioctl_wr && (ioctl_index==254) && !ioctl_addr[24:3])
 		dip_sw[ioctl_addr[2:0]] <= ioctl_dout;
 end
@@ -453,7 +453,7 @@ arcade_video #(256, 24) arcade_video
 (
 	.*,
 
-	.clk_video(CLK_49M),
+	.clk_video(CLK_40M),
 
 	.RGB_in(rgb_out),
 	.HBlank(hblank),
@@ -473,7 +473,7 @@ BluePrint BP_inst
 (
 	.reset(~reset),
 
-	.clk_49m(CLK_49M),
+	.clk_40m(CLK_40M),
 
 	.p1_controls(p1_controls),
 	.p2_controls(p2_controls),
@@ -525,7 +525,7 @@ hiscore #(
 	.CFG_LENGTHWIDTH(2)
 ) hi (
 	.*,
-	.clk(CLK_49M),
+	.clk(CLK_40M),
 	.paused(pause_cpu),
 	.autosave(status[27]),
 	.ram_address(hs_address),

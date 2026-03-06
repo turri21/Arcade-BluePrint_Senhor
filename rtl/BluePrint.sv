@@ -26,7 +26,7 @@
 module BluePrint
 (
 	input                reset,
-	input                clk_49m,
+	input                clk_40m,
 
 	// Player controls (active HIGH, assembled from MiSTer inputs)
 	input          [7:0] p1_controls,
@@ -105,7 +105,7 @@ selector DLSEL
 BluePrint_CPU main_pcb
 (
 	.reset(reset),
-	.clk_49m(clk_49m),
+	.clk_40m(clk_40m),
 
 	.red(video_r),
 	.green(video_g),
@@ -155,7 +155,7 @@ BluePrint_SND sound_pcb
 (
 	.reset(reset),
 	.pause(pause),
-	.clk_49m(clk_49m),
+	.clk_40m(clk_40m),
 	.sound_cmd(sound_cmd),
 	.sound_cmd_wr(sound_cmd_wr),
 	.dip_sw(dip_sw),
